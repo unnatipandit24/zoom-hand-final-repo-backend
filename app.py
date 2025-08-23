@@ -3,13 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 from zoom_utils import apply_zoom_bytes
 import uvicorn
+import os
 
 app = FastAPI(title="Hand-Zoom Backend", version="1.0.0")
 
 # Allow your Android device to call the API (same Wi-Fi LAN)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # tighten to your phone's origin/IP in production
+    allow_origins=["*"],  # For security, specify your frontend origin in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,10 +21,7 @@ def health():
     return {"status": "ok"}
 
 @app.post("/upload-image/")
-async def upload_image(
-    file: UploadFile = File(...),
-    zoom: float = Form(1.5)
-):
+async def upload_image(file: UploadFile = File(...), zoom: float = Form(1.5)):
     """
     Gallery mode: send a single image (form-data: file, zoom).
     Returns the zoomed JPEG bytes.
@@ -41,14 +39,10 @@ async def upload_image(
 
 
 @app.post("/upload-frame/")
-async def upload_frame(
-    file: UploadFile = File(...),
-    zoom: float = Form(1.5)
-):
+async def upload_frame(file: UploadFile = File(...), zoom: float = Form(1.5)):
     """
     Live mode: send a single camera frame repeatedly (multipart/form-data).
     Returns the zoomed frame as JPEG bytes.
-    Your Android app calls this in a loop (or on an interval).
     """
     if zoom <= 0:
         raise HTTPException(status_code=400, detail="zoom must be > 0")
@@ -62,7 +56,6 @@ async def upload_frame(
     return Response(content=out_bytes, media_type="image/jpeg")
 
 
-# Optional: simple JSON echo of server version / config
 @app.get("/")
 def root():
     return JSONResponse({
@@ -77,6 +70,5 @@ def root():
 
 
 if __name__ == "__main__":
-    # Run with: python app.py
-    # Or: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))  # Render will set PORT
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
